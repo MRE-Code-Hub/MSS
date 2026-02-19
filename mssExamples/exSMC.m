@@ -73,7 +73,7 @@ for i=1:N+1
     e_r     = r - xd(2);
     sigma = e_r + 2 * lambda * e_psi + lambda^2 * z_psi; 
     r_r = r - sigma;  % sigma = r - r_r
-    r_r_dot = xd_dot(3) - 2 * lambda * e_r - lambda^2 * e_psi;
+    r_r_dot = xd(3) - 2 * lambda * e_r - lambda^2 * e_psi;
     
     switch flag
         case flag==1        % sgm(sigma)
