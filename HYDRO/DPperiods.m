@@ -5,7 +5,7 @@ function [T,zeta] = DPperiods(vessel,display)
 %
 %  Inputs:
 %     vessel    : MSS vessel structure
-%     display   : (optionally) 0 no display, 1 display results to screen
+%     display   : 0 no display, 1 display results 
 %
 %  Outputs:
 %     T(1:6)    : Time constants in surge, sway, and yaw
@@ -15,11 +15,8 @@ function [T,zeta] = DPperiods(vessel,display)
 %
 % Author:    Thor I. Fossen
 % Date:      2005-09-26
-% Revisions: 2008-05-09  First version
-%            2009-09-11  Using constant viscous damping Bv
-%            2013-07-06  Using new initial values w_0
-%            2019-04-25  Fixed bug for test on imag and real eigenvalues
-% Revisions: 2021-03-07  Major improvements, new formulas for periods/time constants
+% Revisions: 
+%   2026-03-30 : New formulas for periods/time constants based on vesselPeriods.m
 
 if nargin == 1
     display = 0;
@@ -34,11 +31,10 @@ G   = reshape(vessel.C(:,:,Nw,1),6,6);
 for k = 1:Nw
     A(:,:,k) = reshape(vessel.A(:,:,k,1),6,6,1);
        
-    if isfield(vessel,'Bv')  % viscous damping
-        B(:,:,k) = reshape(vessel.B(:,:,k,1),6,6,1)... 
-                 + vessel.Bv(:,:,1);
+    if isfield(vessel,'Bv')  % Viscous damping
+        B(:,:,k) = reshape(vessel.B(:,:,k,1),6,6,1) + vessel.Bv(:,:,1);
         flagBV = 1;
-    else                     % no viscous damping
+    else                     % No viscous damping
         B(:,:,k) = reshape(vessel.B(:,:,k,1),6,6,1);
         flagBV = 0;
     end
@@ -46,13 +42,8 @@ for k = 1:Nw
 end
 
 % *************************************************************************
-%% Compute periods/time constants for diagonal matrices 
+% Compute periods/time constants 
 % *************************************************************************
-
-% estimate the natural frequencies in DOFs 3,4,5
-w_0 = sqrt(G(3,3)/(MRB(3,3)+A(3,3))); w3 = natfrequency(vessel,3,w_0,1);
-w_0 = sqrt(G(4,4)/(MRB(4,4)+A(4,4))); w4 = natfrequency(vessel,4,w_0,1);
-w_0 = sqrt(G(5,5)/(MRB(5,5)+A(5,5))); w5 = natfrequency(vessel,5,w_0,1);
 
 % LF model DOFs 1,2,6 (uses first frequency as zero frequency)
 M11 = MRB(1,1) + A(1,1,1);
@@ -64,70 +55,34 @@ if flagBV == 0  % if no visocus damping, use 20% of max Bii as LF estimate
     B22 = 0.2 * max(B(2,2,:));
     B66 = 0.2 * max(B(6,6,:));    
 else
-    B11 = B(1,1,1) ;
+    B11 = B(1,1,1);
     B22 = B(2,2,1);
     B66 = B(6,6,1);
 end
 
-% *************************************************************************
-%% Compute eigenvalues, damping factors for coupled system
-% *************************************************************************
-
-% LF added mass
-MA = A(:,:,1);
-MA(3,3) = interp1(w,reshape(A(3,3,:),1,Nw),w3);
-MA(4,4) = interp1(w,reshape(A(4,4,:),1,Nw),w4);
-MA(5,5) = interp1(w,reshape(A(5,5,:),1,Nw),w5);
-
-% total mass
-M = MRB + MA;
-
-% Damping at resonant frequencies
-N = B(:,:,1);
-N(3,3) = interp1(w,reshape(B(3,3,:),1,Nw),w3); 
-N(4,4) = interp1(w,reshape(B(4,4,:),1,Nw),w4);
-N(5,5) = interp1(w,reshape(B(5,5,:),1,Nw),w5);
-
-if isfield(vessel,'roll') % only veres data
-    N(4,4) = N(4,4) + interp1(w,reshape(vessel.roll.Bv44(:,length(vessel.velocities)),Nw,1),w4);
-end
+% Heave, roll and pitch periods
+[T345,zeta345] = vesselPeriods(w,vessel.MRB,A,B,G,'coupled',0);
 
 % *************************************************************************
-%% Assign values to outputs
+% Assign values to outputs
 % *************************************************************************
 T(1) = M11/B11;     % Time constants DOFs 1,2,6
 T(2) = M22/B22;
 T(6) = M66/B66;
-
-T(3) = 2*pi/w3;     % Natural periods DOFs 3,4,5
-T(4) = 2*pi/w4;
-T(5) = 2*pi/w5;
-
-% coupled values in CG - must be updated to handle different resonance freqs.
-M33 = MRB(3,3) + interp1(w,reshape(A(3,3,:),1,Nw),w3);
-M44 = MRB(4,4) + interp1(w,reshape(A(4,4,:),1,Nw),w4);
-M55 = MRB(5,5) + interp1(w,reshape(A(5,5,:),1,Nw),w5);
-
-N33 = interp1(w,reshape(B(3,3,:),1,Nw),w3);
-
-if flagBV == 1  % for roll peack viscous value at w4 
-    N44 = interp1(w,reshape(vessel.B(4,4,:,1),1,Nw),w4) + max(vessel.Bv(4,4,:));
-else
-    N44 = interp1(w,reshape(B(4,4,:),1,Nw),w4);
-end
-
-N55 = interp1(w,reshape(B(5,5,:),1,Nw),w5);
+T(3) = T345(1);     % Damped periods DOFs 3,4,5
+T(4) = T345(2);
+T(5) = T345(3);
 
 % Damping factors
 zeta(1) = -1;
 zeta(2) = -1;
-zeta(3) = 0.5 * (N33/M33) * (1/w3);
-zeta(4) = 0.5 * (N44/M44) * (1/w4);
-zeta(5) = 0.5 * (N55/M55) * (1/w5);
+zeta(3) = zeta345(1);
+zeta(4) = zeta345(2);
+zeta(5) = zeta345(3);
 zeta(6) = -1;
 
 % *************************************************************************
-%% Display
+% Display
 % *************************************************************************
 if display == 1
     disp('Time constant       Period    Damping')
@@ -140,6 +95,3 @@ if display == 1
     fprintf('Yaw:   %7.2f (s)\n',T(6))
     disp('------------------------------------------------')
 end
-
-
-
