@@ -107,6 +107,7 @@ nomoto               % Generates Bode plots for the 1st- and 2nd-order Nomoto mo
 order3               % Path generation using cubic polynomials (see demoWaypointGuidance.slx)
 order5               % Path generation using 5th-order polynomials (see demoWaypointGuidance.slx)
 PIDnonlinearMIMO     % Nonlinear MIMO PID regulator for dynamic positioning (DP)
+projectToPath        % Computes the orthogonal projection of a vehicle position onto a sampled 2-D path.
 refModel             % Third-order reference model for position, velocity, and acceleration
 RefModelPolyExp      % Transition from x_start to x_final using a polynomial or an exponential curve 
 staticRollPitchYaw   % Static roll, pitch, and yaw angles from IMU specific force and magnetometer measurements
@@ -309,6 +310,7 @@ exBoxShapedShip    % Computation of the transverse metacentric height and the he
 exFeedback         % For-loop implementation for numerical integration of a 1st-order system under feedback and feedforward control
 exFFT              % Estimation of the wave encounter frequency from time series using the fast-Fourier transform (FFT)
 exPlotGM           % Compute and plot the GM_T and BM_T for an AUV diving from the surface to a given depth
+exHermiteWaypoints % Computes a C1 Hermite/MAKIMA spline path through waypoints given in North-East coordinates.
 exHybridPath       % Computation of a hybrid continuous path parametrized by waypoints
 exINS_AHRS         % Euler angle error-state (indirect) Kalman filter for INS aided by GNSS position and AHRS attitude measurements 
 exINS_Euler        % Euler angle error-state (indirect) Kalman filter for INS aided by GNSS position and compass measurements
