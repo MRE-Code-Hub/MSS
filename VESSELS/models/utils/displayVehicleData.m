@@ -44,7 +44,7 @@ axis off;
 
 % Image 
 filePath = which(imageFile);
-axes('Position', [0.15 0.20 0.7 0.33]);  
+axes('Position', [0.15 0.10 0.7 0.33]);  
 if isempty(filePath)
     text(0, 0.5, sprintf('Image not found:\n%s', imageFile), ...
         'FontSize', 11, 'Color', 'r', 'FontName', 'Courier', ...
