@@ -1,17 +1,17 @@
-function G = Gmtrx(nabla,A_wp,GMT,GML,LCF,r_bp)
-% G = Gmtrx(nabla,A_wp,GMT,GML,LCF,r_bp) computes the 6x6 system spring 
+function G = Gmtrx(nabla,A_wp,GMT,GML,x_F,r_bP)
+% G = Gmtrx(nabla,A_wp,GMT,GML,x_F,r_bP) computes the 6x6 system spring 
 % stiffness matrix G about an arbitrarily point P for a floating vessel 
 % (small roll and pitch angles). For submerged vessels, use gvect.m or
 % gRvect.m.
 % 
 % Inputs:  
-%  nabla: volume displacement (m3)
-%  Awp: waterplane area (m2)
-%  GMT, GML: transverse/longitudinal metacentric heights (m)
-%  LCF = x coordinate from the CO to the CF, positive forwards negative for
-%        conventional ships (m)
-%  r_bp = [x_p y_p z_p]': location of the point P with respect to the CO (m),  
-%          use r_bp = [0, 0, 0]' for CO midships
+%  nabla: Volume displacement [m^3]
+%  Awp: Waterplane area [m^2]
+%  GMT, GML: Transverse/longitudinal metacentric heights [m]
+%  x_F = x coordinate from the CO to the CF, positive forwards negative for
+%        conventional ships [m]
+%  r_bP = [x_P y_P z_P]': location of the point P with respect to the CO [m],  
+%          use r_bP = [0, 0, 0]' for P = CO 
 %
 % Author:     Thor I. Fossen
 % Date:       14 Jun 2001
@@ -26,14 +26,14 @@ rho = 1025;  % density of water
 g   = 9.81;	 % acceleration of gravity
 
 % Location of the center of flotation (CF)
-r_bf = [LCF, 0, 0]';
+r_bF = [x_F, 0, 0]';
 
 % Hydrostatic quantities expressed in the CF
 G33_CF  = rho * g * A_wp;
 G44_CF  = rho * g * nabla * GMT;
 G55_CF  = rho * g * nabla * GML;
 G_CF = diag([0 0 G33_CF G44_CF G55_CF 0]);  
-G_CO = Hmtrx(r_bf)' * G_CF * Hmtrx(r_bf);
-G = Hmtrx(r_bp)' * G_CO * Hmtrx(r_bp);
+G_CO = Hmtrx(r_bF)' * G_CF * Hmtrx(r_bF);
+G = Hmtrx(r_bP)' * G_CO * Hmtrx(r_bP);
 
 end
