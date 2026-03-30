@@ -20,7 +20,7 @@ numMethods = length(methods);
 buttonHeight = 40;
 buttonSpacing = 10;
 totalHeight = numMethods * (buttonHeight + buttonSpacing) + buttonSpacing;
-figureWidth = 500;
+figureWidth = 600;
 figureHeight = max(150, totalHeight);  % Ensure minimum height is 150
 
 % Create the figure window
@@ -46,7 +46,7 @@ set(f, 'UserData', NaN);  % Initialize UserData to store ControlFlag
 for i = 1:numMethods
     posY = figureHeight - (i * (buttonHeight + buttonSpacing));
     uicontrol('Style', 'pushbutton', 'String', methods{i}, ...
-        'UserData', i, 'FontSize', 13, 'Position', [10, posY, 450, 40], ...
+        'UserData', i, 'FontSize', 12, 'Position', [10, posY, 600, 40], ...
         'Callback', @buttonCallback);
 end
 
