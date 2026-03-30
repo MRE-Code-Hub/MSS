@@ -75,7 +75,7 @@ wpt = addIntermediateWaypoints(wpt, 2);
 % ALOS and ILOS parameters
 Delta_h = 10;                    % Look-ahead distance
 gamma_h = 0.001;                 % ALOS adaptive gain
-kappa = 0.001;                   % ILOS integral gain
+kappa_int = 0.001;               % ILOS integral gain
 
 % Additional parameter for straight-line path following
 R_switch = 5;                    % Radius of switching circle
@@ -87,7 +87,7 @@ psi0 = atan2(wpt.pos.y(2) - wpt.pos.y(1), wpt.pos.x(2) - wpt.pos.x(1));
 % Additional parameters for Hermite spline path following
 Umax = 2;                        % Maximum speed for Hermite spline LOS
 idx_start = 1;                   % Initial index for Hermite spline
-[w_path, x_path, y_path, dx, dy, pi_h, pp_x, pp_y, N_horizon] = ...
+[w_path, x_path, y_path, dx, dy, pi_h, pp_x, pp_y, N_horizon, ~] = ...
     hermiteSpline(wpt, Umax, h); % Compute Hermite spline for path following
 
 % Otter USV input matrix
@@ -163,7 +163,7 @@ for i = 1:nTimeSteps
             [psi_d, r_d] = LOSobserver(psi_d, r_d, psi_ref, h, K_f);
 
         case 3  % ILOS heading autopilot straight-line path following
-            psi_ref = ILOSpsi(xn, yn, Delta_h, kappa, h, R_switch, wpt);
+            psi_ref = ILOSpsi(xn, yn, Delta_h, kappa_int, h, R_switch, wpt);
             [psi_d, r_d] = LOSobserver(psi_d, r_d, psi_ref, h, K_f);
 
         case 4  % ALOS heading autopilot, cubic Hermite spline interpolation
@@ -220,9 +220,9 @@ else  % Hermite splines
     plotHermiteSplines(y_path, x_path, wpt);
 end
 
-xlabel('East (m)', 'FontSize', 14);
-ylabel('North (m)', 'FontSize', 14);
-title('North-East Positions (m)', 'FontSize', 14);
+xlabel('East (m)', 'FontSize', 12);
+ylabel('North (m)', 'FontSize', 12);
+title('North-East Positions (m)', 'FontSize', 12);
 axis equal;
 grid on;
 set(findall(gcf,'type','line'),'linewidth',2);
@@ -246,7 +246,7 @@ subplot(616),plot(t,rad2deg(nu(:,6)),t,rad2deg(r_d));
 xlabel('Time (s)'),title('Yaw rate (deg/s)'),grid on;
 legend('r','r_d');
 set(findall(gcf,'type','line'),'linewidth',2);
-set(findall(gcf,'type','text'),'FontSize',14);
+set(findall(gcf,'type','text'),'FontSize',12);
 set(findall(gcf,'type','legend'),'FontSize',legendSize);
 
 % Plot speed, heave position and Euler angles
@@ -266,7 +266,7 @@ subplot(515),plot(t,rad2deg(unwrap(eta(:,6))),t,rad2deg(unwrap(psi_d)));
 xlabel('Time (s)'),title('Yaw angle (deg)'),grid on;
 legend('\psi','\psi_d');
 set(findall(gcf,'type','line'),'linewidth',2);
-set(findall(gcf,'type','text'),'FontSize',14);
+set(findall(gcf,'type','text'),'FontSize',12);
 set(findall(gcf,'type','legend'),'FontSize',legendSize);
 
 % Display the vehicle data and an image of the vehicle
