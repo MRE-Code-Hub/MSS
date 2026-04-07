@@ -30,7 +30,6 @@
 %
 % Author:    Thor I. Fossen
 % Date:      2025-03-10
-% Revisions: 
 
 clear waveForceRAO; % Clear persistent RAO tables
 clearvars; 
@@ -39,9 +38,9 @@ rng(1); % Set random generator seed to 1 when generating stochastic waves
 
 %% SIMULATOR CONFIGURATION
 h  = 0.05; % Sampling time (s)
-T_final = 200; % Final simulation time (s)
+T_final = 120; % Final simulation time (s)
 plotFlag = 0; % Set to 1 to plot 6x6 matrix elememts, 0 for no plot
-vesselChoice = 3; % Choose vessel type 1, 2, 3
+vesselChoice = 1; % Choose vessel type 1, 2, 3
 
 switch vesselChoice
     case 1
@@ -65,8 +64,8 @@ maxFreq = 3.0; % Maximum frequency in RAO computations (rad/s)
 numFreqIntervals = 60; % Number of wave frequency intervals (>50)
 
 % Sea state
-Hs = 4; % Significant wave height (m)
-omega_p = 0.8;  % Wave spectrum peak frequencies (rad/s)
+Hs = 5; % Significant wave height (m)
+omega_p = 0.7;  % Wave spectrum peak frequencies (rad/s)
 
 % First-order force RAOs: Calculate the wave spectrum S(Omega) for each frequency
 spectrumType = 'JONSWAP'; 
@@ -92,19 +91,18 @@ for i = 1:nTimeSteps
 end
 
 %% Compute Aeq and Beq using simplified normalized wave spectrum
-% Quieck approzximation shifting omega_p to the encounter frquency. 
+% Quieck approzximation shifting omega_p to the encounter frquency.
 % TODO: The method in Fossen (2025) evaluating the spectrum in the encounter
 % frequency domain by computing the Jacobian will be mych more accuarte in
-% particular in following seas. 
+% particular in following seas.
 g = 9.81;
-omega_p = omega_p - (omega_p^2 / g) * U * cos(beta_wave); 
+omega_p = omega_p - (omega_p^2 / g) * U * cos(beta_wave);
 vessel = computeManeuveringModel(vessel, omega_p, plotFlag);
 
 %% Compute Cummins and Maneuvering Model Responses
 freqs = vessel.freqs;
 nFreqInterp = 200;
 freqs_uniform = linspace(min(freqs), max(freqs), nFreqInterp)';
-vessel.B = vessel.B + vessel.Bv; % Add viscous damping
 
 % Initialize storage for all DOFs
 eta_cummins = zeros(nTimeSteps,6);  % Displacement (Cummins)
@@ -112,8 +110,9 @@ eta_eq = zeros(nTimeSteps,6);       % Displacement (Aeq-Beq)
 eta_dot = zeros(nTimeSteps,6);      % Velocity (Cummins)
 eta_ddot = zeros(nTimeSteps,6);     % Acceleration (Cummins)
 eta_dot_eq = zeros(nTimeSteps,6);   % Velocity (Maneuvering)
-A_eq = zeros(6,1);  
+A_eq = zeros(6,1);
 B_eq = zeros(6,1);
+Bv = zeros(6,1);
 
 A_w_all = zeros(length(freqs), 6);
 B_w_all = zeros(length(freqs), 6);
@@ -123,12 +122,13 @@ K_all = zeros(nTimeSteps,6);        % Retardation functions
 for DOF = 1:6
     A_eq(DOF) = vessel.A_eq(DOF,DOF);
     B_eq(DOF) = vessel.B_eq(DOF,DOF);
-
+    Bv(DOF) = vessel.Bv(DOF,DOF,1);
+    
     A_w = squeeze(vessel.A(DOF,DOF,:,1));
     B_w = squeeze(vessel.B(DOF,DOF,:,1));
     B_interp = interp1(freqs, B_w, freqs_uniform, 'pchip','extrap');
     B_inf = B_interp(end);
-    
+
     A_w_all(:,DOF) = A_w;
     B_w_all(:,DOF) = B_w;
     B_interp_all(:,DOF) = B_interp;
@@ -144,7 +144,7 @@ for DOF = 1:6
     end
     K_all(:,DOF) = K;  % Store K(t)
 
-    % Cummins Equation 
+    % Cummins Equation
     M = vessel.MRB(DOF,DOF) + vessel.A(DOF,DOF,end);
     C = vessel.C(DOF,DOF);
     F_ext = waveData(:,DOF);
@@ -153,24 +153,44 @@ for DOF = 1:6
     for k = 2:nTimeSteps-1
         tau = t(1:k);
         dtau = t(k) - tau;
-        K_interp = interp1(t, K, dtau, 'linear', 0); 
+        K_interp = interp1(t, K, dtau, 'linear', 0);
         memory_effect = trapz(tau(:), (K_interp(:) .* eta_dot(1:k,DOF)));
-        eta_ddot(k,DOF) = (F_ext(k) - C * eta_dof(k) - memory_effect ...
-            - B_inf * eta_dot(k,DOF)) / M;
+        eta_ddot(k,DOF) = (F_ext(k) -  C * eta_dof(k) - memory_effect ...
+            - (B_inf + Bv(DOF)) * eta_dot(k,DOF)) / M;
         eta_dot(k+1,DOF) = eta_dot(k,DOF) + h * eta_ddot(k,DOF);
         eta_dof(k+1) = eta_dof(k) + h * eta_dot(k+1,DOF);
     end
     eta_cummins(:,DOF) = eta_dof(1:length(t));
 
-    % Maneuvering Approximation using A_eq and B_eq
+    % Maneuvering approximation using A_eq and B_eq
     M_eq = vessel.MRB(DOF,DOF) + A_eq(DOF);
-    A_sys = [0 1; -C/M_eq -B_eq(DOF)/M_eq];
-    B_sys = [0; 1/M_eq];
+    Bv(DOF) = vessel.Bv(DOF,DOF,1);
+    A_sys = [0 1;
+        -C/M_eq  -(B_eq(DOF)+Bv(DOF))/M_eq];
+    B_sys = [0;
+        1/M_eq];
     C_sys = [1 0];
     D_sys = 0;
-    sys_eq = ss(A_sys, B_sys, C_sys, D_sys);
-    [eta_eq(:,DOF), ~, x_eq_states]  = lsim(sys_eq, F_ext, t); % Position
-    eta_dot_eq(:,DOF) = x_eq_states(:,2); % Velocity 
+
+    % Exact ZOH discretization
+    Aug = [A_sys B_sys;
+        0     0     0];
+    Phi = expm(Aug*h);
+
+    Ad = Phi(1:2,1:2);
+    Bd = Phi(1:2,3);
+
+    % Initial [position; velocity] for this DOF
+    xk = [0, 0]';
+    eta_eq(1,DOF) = xk(1);
+    eta_dot_eq(1,DOF) = xk(2);
+
+    for k = 2:nTimeSteps-1
+        xk = Ad*xk + Bd*F_ext(k);
+        eta_eq(k+1,DOF) = xk(1);
+        eta_dot_eq(k+1,DOF) = xk(2);
+    end
+
 end
 
 % Convert angles to degrees for DOFs 4–6
@@ -181,9 +201,9 @@ eta_dot_eq(:,4:6) = rad2deg(eta_dot_eq(:,4:6));
 
 %% Plot Results
 figure(1);
-dofNames = {'Wave Force in Surge (N)', 'Wave Force in Sway (N)', 
-    'Wave Force in Heave (N)', 'Wave Moment in Roll (Nm)', 
-    'Wave Moment in Pitch (Nm)', 'Wave Moment in Yaw (Nm)'};
+dofNames = {'wave force in surge (N)', 'wave force in sway (N)', 
+    'wave force in heave (N)', 'wave moment in roll (Nm)', 
+    'wave moment in pitch (Nm)', 'wave moment in yaw (Nm)'};
 
 for DOF = 1:6
     % Left column: Retardation function
@@ -191,7 +211,7 @@ for DOF = 1:6
     plot(t, K_all(:,DOF), 'b', 'LineWidth', 1.5)
     xlabel('Time (s)');
     ylabel(['K_{' num2str(DOF) num2str(DOF) '}']);
-    title(['Retardation Function  K_{' num2str(DOF) num2str(DOF) '}']);
+    title(['Retardation function  K_{' num2str(DOF) num2str(DOF) '}']);
     grid on;
 
     % Right column: 1st-order wave force
@@ -199,12 +219,12 @@ for DOF = 1:6
     plot(t, waveData(:,DOF), 'r', 'LineWidth', 1.5)
     xlabel('Time (s)');
     ylabel(['\tau_{' num2str(DOF) '}']);
-    title(['1st-Order ' dofNames{DOF}]);
+    title(['1st-order ' dofNames{DOF}]);
     grid on;
 end
 
-set(findall(gcf,'type','text'),'FontSize',12)
-set(findall(gcf,'type','legend'),'FontSize',10)
+set(findall(gcf,'type','text'),'FontSize',11)
+set(findall(gcf,'type','legend'),'FontSize',8)
 
 figure(2);
 for DOF = 1:6
@@ -212,24 +232,23 @@ for DOF = 1:6
     subplot(6,2,2*DOF - 1)
     plot(freqs, A_w_all(:,DOF), 'rx', ...
          freqs_uniform, A_eq(DOF)*ones(length(freqs_uniform),1), 'b', 'LineWidth', 1.5)
-    title(['Added Mass A_{' num2str(DOF) num2str(DOF) '}(ω)']);
+    title(['Added mass A_{' num2str(DOF) num2str(DOF) '}(ω)']);
     xlabel('Frequency (rad/s)')
     legend('A(ω)', 'A_{eq}', 'Location', 'best');
     grid on;
 
     % --- Damping subplot (right column) ---
     subplot(6,2,2*DOF)
-    plot(freqs_uniform, B_interp_all(:,DOF), 'g', ...
-         freqs, B_w_all(:,DOF), 'rx', ...
+    plot(freqs, B_w_all(:,DOF), 'rx', ...
          freqs_uniform, B_eq(DOF)*ones(length(freqs_uniform),1), 'b', 'LineWidth', 1.5)
-    title(['Damping B_{' num2str(DOF) num2str(DOF) '}(ω)']);
+    title(['Potential damping B_{' num2str(DOF) num2str(DOF) '}(ω)']);
     xlabel('Frequency (rad/s)')
-    legend('Interpolated', 'B(ω)', 'B_{eq}', 'Location', 'best');
+    legend('B(ω)', 'B_{eq}', 'Location', 'best');
     grid on;
 end
 
-set(findall(gcf,'type','text'),'FontSize',12)
-set(findall(gcf,'type','legend'),'FontSize',10)
+set(findall(gcf,'type','text'),'FontSize',11)
+set(findall(gcf,'type','legend'),'FontSize',8)
 
 figure(3);
 
@@ -246,17 +265,17 @@ for k = 1:3
     DOF = velDOFs(k);
     subplot(3,2,(k-1)*2 + 1);                       % (row k, col 1)
 
-    plot(t, eta_dot(:,DOF),    'b', ...
-         t, eta_dot_eq(:,DOF), 'r', 'LineWidth',1.5);
+    plot(t, eta_dot(:,DOF),    'b-.', ...
+         t, eta_dot_eq(:,DOF), 'r-', 'LineWidth',1.5);
 
     ylabel('Velocity');
-    legend('Cummins Equation', ...
+    legend('Cummins equation', ...
            'A_{eq} and B_{eq} approx.');
 
     switch DOF
-        case 1, title('Surge Velocity (m/s)');
-        case 2, title('Sway Velocity (m/s)');
-        case 6, title('Yaw Velocity (deg/s)');
+        case 1, title('Surge velocity (m/s)');
+        case 2, title('Sway velocity (m/s)');
+        case 6, title('Yaw velocity (deg/s)');
     end
 
     xlabel('Time (s)');
@@ -268,17 +287,17 @@ for k = 1:3
     DOF = posDOFs(k);
     subplot(3,2,k*2);                              % (row k, col 2)
 
-    plot(t, eta_cummins(:,DOF), 'b', ...
-         t, eta_eq(:,DOF),      'r', 'LineWidth',1.5);
+    plot(t, eta_cummins(:,DOF), 'b-.', ...
+         t, eta_eq(:,DOF),      'r-', 'LineWidth',1.5);
 
     ylabel('Amplitude');
-    legend('Cummins Equation', ...
+    legend('Cummins equation', ...
            'A_{eq} and B_{eq} approx.');
 
     switch DOF
-        case 3, title('Vertical (Heave) Position (m)');
-        case 4, title('Roll Angle (deg)');
-        case 5, title('Pitch Angle (deg)');
+        case 3, title('Vertical (heave) position (m)');
+        case 4, title('Roll angle (deg)');
+        case 5, title('Pitch angle (deg)');
     end
 
     xlabel('Time (s)');
@@ -286,5 +305,5 @@ for k = 1:3
 end
 
 % Uniform font sizing
-set(findall(gcf,'type','text'),   'FontSize',12)
-set(findall(gcf,'type','legend'), 'FontSize',10)
+set(findall(gcf,'type','text'),   'FontSize',11)
+set(findall(gcf,'type','legend'), 'FontSize',8)
