@@ -1,147 +1,118 @@
-function plotABC(vessel,mtrx,i,j,velno)
-% plotABC plots plots all elements Aij,Bij,Cij versus frequency and speed
+function plotABC(vessel,mtrx,velno)
+% plotABC plots A, B, or C as 3x3 longitudinal block on top of
+% 3x3 lateral block below, with an empty spacer row between them.
 %
-%    plotABC(vessel,mtrx,i,j,velno) plots added mass, damping, restoring 
-%       matrix element i,j versus frequency ans speed
+%   plotABC(vessel,mtrx)       plots all speeds
+%   plotABC(vessel,mtrx,velno) plots one speed only
 %
-%    plotABC(vessel,mtrx) plots all elements Aij,Bij,Cij versus
-%       frequency and speed
+% Inputs:
+%   vessel : MSS vessel structure
+%   mtrx   : 'A' added mass
+%            'B' potential damping
+%            'C' restoring forces
+%   velno  : optional speed index
 %
-% Inputs: 
-%   vessel:  MSS vessel structure 
-%   mtrx  : 'A'    added mass
-%           'B'    potential + viscous damping
-%           'C'    restoring forces
-%  i, j (optionally):    matrix element
-%  velno (optionally):   speed number
+% Longitudinal block indices: [1 3 5] x [1 3 5]
+% Lateral block indices:      [2 4 6] x [2 4 6]
 %
-% Author:    Thor I. Fossen
-% Date:      2005-05-16 First version
-% Revisions: 2005-09-23 Removed viscous terms when plotting
+% Author: Thor I. Fossen
+% Date:   2026-04-05
 
-if strcmp(mtrx,'A')
-    H = vessel.A;
-    figno = 10;
-elseif strcmp(mtrx,'B')
-    H  = vessel.B; 
-    figno = 20;
-elseif strcmp(mtrx,'C')
-    H = vessel.C;
-    figno = 30;
+    % Select matrix
+    switch upper(mtrx)
+        case 'A'
+            H = vessel.A;
+            figBase = 100;
+            letter = 'A';
+        case 'B'
+            H = vessel.B;
+            figBase = 200;
+            letter = 'B';
+        case 'C'
+            H = vessel.C;
+            figBase = 300;
+            letter = 'C';
+        otherwise
+            error('mtrx must be ''A'', ''B'', or ''C''.');
+    end
+
+    freqs      = vessel.freqs(:);
+    velocities = vessel.velocities(:);
+
+    nvel = length(velocities);
+
+    % Speed selection
+    if nargin < 3
+        velList = 1:nvel;
+    else
+        validateattributes(velno, {'numeric'}, ...
+            {'scalar','integer','>=',1,'<=',nvel}, mfilename, 'velno');
+        velList = velno;
+    end
+
+    % Index sets
+    longIdx = [1 3 5];
+    latIdx  = [2 4 6];
+
+    % Use tiledlayout if available, otherwise fall back to subplot
+    useTiled = exist('tiledlayout','file') == 2;
+
+    for kvel = 1:length(velList)
+        iv = velList(kvel);
+
+        figure(figBase + iv);
+        clf;
+
+        if useTiled
+            tl = tiledlayout(7,3,'TileSpacing','loose','Padding','compact');
+            title(tl, sprintf('%s matrix, U = %.3g m/s', letter, velocities(iv)));
+        end
+
+        % Labels above the two 3x3 blocks
+        annotation('textbox',[0.22 0.955 0.56 0.03], ...
+            'String',sprintf('Longitudinal: surge, heave, pitch (U = %.3g m/s)', velocities(iv)), ...
+            'EdgeColor','none', ...
+            'HorizontalAlignment','center', ...
+            'FontWeight','bold', ...
+            'FontSize',12);
+
+        annotation('textbox',[0.32 0.47 0.42 0.03], ...
+            'String',sprintf('Lateral: sway, roll, yaw (U = %.3g m/s)', velocities(iv)), ...
+            'EdgeColor','none', ...
+            'HorizontalAlignment','center', ...
+            'FontWeight','bold', ...
+            'FontSize',12);
+
+        % --- Top: longitudinal 3x3 block ---
+        plotBlock(H, freqs, iv, longIdx, letter, 1, useTiled);
+
+        % --- Bottom: lateral 3x3 block ---
+        plotBlock(H, freqs, iv, latIdx, letter, 5, useTiled);
+    end
 end
 
-% PLOT DATA
-freqs      = vessel.freqs;
-velocities = vessel.velocities;
+function plotBlock(H, freqs, velno, idx, letter, rowOffset, useTiled)
+% Helper to plot one 3x3 block.
+    count = 0;
+    for rr = 1:3
+        for cc = 1:3
+            count = count + 1;
+            i = idx(rr);
+            j = idx(cc);
 
-nvel  = length(velocities);
-nfreq = length(freqs);
+            Hij = reshape(H(i,j,:,velno),[],1);
 
-if nargin == 2
-    
-    % A, B, C plots
-    
-    for velno = 1:nvel
-        
-        % longitudinal plots
-        k = 1;
-        figure(figno)
-        
-        for i = 1:2:5
-            
-            for j = 1:2:5
-                
-                Hplot = reshape(H(i,j,:,velno),nfreq,1);
-                splot = 330+k;
-                subplot(splot)
-                plot(freqs,Hplot(:,1),'b-o'),grid
-                    
-                if mtrx == 'A'
-                    Hw = strcat(strcat(strcat(...
-                        'A_{',num2str(i)),num2str(j)),'}');
-                elseif mtrx == 'B'
-                    Hw = strcat(strcat(strcat(...
-                        'B_{',num2str(i)),num2str(j)),'}');
-                elseif mtrx == 'C'
-                    Hw = strcat(strcat(strcat(...
-                        'C_{',num2str(i)),num2str(j)),'}');
-                end
-                U = strcat(strcat(...
-                    ' (U=', num2str(velocities(velno))),' m/s)');
-                
-                xlabel('frequency (rad/s)')
-                title(strcat(Hw,U));
-                k = k +1;
-                
+            if useTiled
+                nexttile((rowOffset-1)*3 + count);
+            else
+                subplot(7,3,(rowOffset-1)*3 + count);
             end
+
+            plot(freqs,Hij,'b-o','MarkerSize',3)
+            grid on;
+
+            title(sprintf('%s_{%d%d}', letter, i, j), 'Interpreter','tex');
+            xlabel('Frequency (rad/s)');
         end
-        
-        figno = figno + 1;
-        
-        % lateral plots
-        k = 1;
-        figure(figno)
-        
-        for i = 2:2:6
-            
-            for j = 2:2:6
-                
-                Hplot = reshape(H(i,j,:,velno),nfreq,1);
-                splot = 330+k;
-                subplot(splot)   
-                plot(freqs,Hplot(:,1),'b-o'),grid
-                
-                if mtrx == 'A'
-                    Hw = strcat(strcat(strcat(...
-                        'A_{',num2str(i)),num2str(j)),'}');
-                elseif mtrx == 'B'
-                    Hw = strcat(strcat(strcat(...
-                        'B_{',num2str(i)),num2str(j)),'}');
-                elseif mtrx == 'C'
-                    Hw = strcat(strcat(strcat(...
-                        'C_{',num2str(i)),num2str(j)),'}');
-                end
-                U = strcat(strcat(...
-                    ' (U=', num2str(velocities(velno))),' m/s)');
-                
-                xlabel('frequency (rad/s)')
-                title(strcat(Hw,U));
-                k = k +1;
-                
-            end
-        end
-        
-        figno = figno + 1;
-        
     end
-
-elseif nargin == 5
-
-    figure(3)
-    subplot(111)
-    Hplot = reshape(H(i,j,:,velno),nfreq,1);
-    
-    % A, B, C plots
-    
-    plot(freqs,Hplot(:,1),'b-o'),grid
-    
-    if mtrx == 'A'
-        Hw = strcat(strcat(strcat(...
-            'A_{',num2str(i)),num2str(j)),'}');
-    elseif mtrx == 'B'
-        Hw = strcat(strcat(strcat(...
-            'B_{',num2str(i)),num2str(j)),'}');
-    elseif mtrx == 'C'
-        Hw = strcat(strcat(strcat(...
-            'C_{',num2str(i)),num2str(j)),'}');
-    end
-    U = strcat(strcat(...
-        ' (U=', num2str(velocities(velno))),' m/s)');
-    
-    xlabel('frequency (rad/s)')
-    title(strcat(Hw,U));
-
-else
-    disp('Error: wrong number of input arguments')
-    return
 end
