@@ -41,6 +41,8 @@ function vessel = computeManeuveringModel(vessel, omega_p, plotFlag)
 %
 % Author: Thor I. Fossen
 % Date: 2025-03-10
+% Revisions: 
+%   2026-04-07 Use only potential damping vessel.B when computing B_eq
 
 % Check number of velocity cases
 if isfield(vessel, 'velocities') && ~isempty(vessel.velocities)
@@ -50,7 +52,7 @@ else
 end
 
 A_all = vessel.A; % Added mass
-B_all = vessel.B + vessel.Bv; % Total Damping, sum of potential and viscous damping 
+B_all = vessel.B; % Potential damping 
 
 omega_min = min(vessel.freqs);
 omega_max = max(vessel.freqs);
