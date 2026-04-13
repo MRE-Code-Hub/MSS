@@ -44,7 +44,7 @@ function x_hat = EKF_5states(position1, position2,...
 %  alpha_2:   (Optionally), Singer constant, course rate
 %  x_prd_int: (Otionally), Initial state vector x_prd
 %
-% See ExOtter.m and SIMmariner.m for case studies using EKF_5states.m to 
+% See exOtter.m and SIMmariner.m for case studies using EKF_5states.m to 
 % estimate the COG, SOG, and course rate.
 %
 % Simulink Models:
@@ -53,10 +53,10 @@ function x_hat = EKF_5states(position1, position2,...
 %       switching.
 %
 % References: 
-%   S. Fossen and T. I. Fossen (2021). Five-state Extended Kalman 
-%   Filter for Estimation of Speed Over Ground (SOG), Course Over Ground (COG) 
-%   and Course Rate of Unmanned Surface Vehicles (USVs): Experimental Results. 
-%   Sensors 21(23). 
+%   S. Fossen and T. I. Fossen (2021). Five-state Extended Kalman Filter for 
+%     Estimation of Speed Over Ground (SOG), Course Over Ground (COG) and
+%     Course Rate of Unmanned Surface Vehicles (USVs): Experimental Results. 
+%     Sensors 21(23). 
 %
 % Author:   Thor I. Fossen
 % Date:     2021-07-25 
