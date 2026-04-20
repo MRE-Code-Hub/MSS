@@ -1,5 +1,5 @@
 function [xdot,U, M, B_prop] = otter(x,n,mp,rp,V_c,beta_c)
-% Compatibel with MATLAB and the free software GNU Octave (www.octave.org)
+% Compatible with MATLAB and the free software GNU Octave (www.octave.org)
 % [xdot,U] = otter(x,n,mp,rp,V_c,beta_c) returns the speed U in m/s 
 % (optionally), the 6x6 mass matrix M (optionally), and the 2x4 input 
 % matrix B_prop (optionally) in pitch and yaw and the time derivative of 
@@ -34,7 +34,7 @@ function [xdot,U, M, B_prop] = otter(x,n,mp,rp,V_c,beta_c)
 %  V_c:     ocean current speed (m/s)
 %  beta_c:  ocean current direction (rad)
 %
-% The coordinate origin CO is chosen midtships on the centerline. The 
+% The coordinate origin CO is chosen midships on the centerline. The 
 % draft is T = 13.4 cm when the payload mp = 0. This corresponds to z = 0. 
 % Choosing mp = 25 kg gives T = 19.5 cm and z = 0.04 m in steady state.
 % Adding a non-zero payload mp will change the steady-state z value since 
@@ -51,7 +51,7 @@ function [xdot,U, M, B_prop] = otter(x,n,mp,rp,V_c,beta_c)
 % M-file Simulators:
 %   SIMotter.m : Script demonstrating 3-D ALOS path-following control.
 %   ExOtter.m  : Example script demonstrating the 5-state EKF for estimation 
-%                of COG, COG and course rate when using a course autopilot.
+%                of COG, COG, and course rate when using a course autopilot.
 % 
 % Simulink Simulators:
 %   demoOtterUSVHeadingControl.slx : 3-D ALOS path-following control.
@@ -66,9 +66,10 @@ function [xdot,U, M, B_prop] = otter(x,n,mp,rp,V_c,beta_c)
 %   2023-10-14 : Added ocean current acceleration terms.
 %   2024-02-03 : Recalibration of damping terms.
 %   2024-02-28 : Corrected the trim condition for eta.
-%   2024-04-20 : Added compability to GNU Octave.
-%   2024-04-20 : Added compability to GNU Octave.
+%   2024-04-20 : Added compatibility to GNU Octave.
+%   2024-04-20 : Added compatibility to GNU Octave.
 %   2024-06-05 : Added two new output arguments for M and B_prop
+%   2026-04-20 : Correct payload lever arm moment of inertia
 
 if nargin == 0
     x = zeros(12,1); n = zeros(2,1); mp=25; rp = zeros(3,1); V_c=0; beta_c=0;
@@ -109,7 +110,7 @@ nu_r = nu - nu_c;                           % relative velocity vector
 nu_c_dot = [-Smtrx(nu2) * nu_c(1:3)         % current acceleration vector
              zeros(3,1)              ];
 
-% Inertia dyadic, volume displacement and draft
+% Inertia dyadic, volume displacement, and draft
 nabla = (m+mp)/rho;                         % volume
 T = nabla / (2 * Cb_pont * B_pont * L);     % draft
 Ig_CG = m * diag([R44^2, R55^2, R66^2]);    % only hull in the CG
@@ -198,7 +199,7 @@ Kp = -2 * 0.2 * w4 * M(4,4);
 Mq = -2 * 0.4 * w5 * M(5,5);
 Nr = -M(6,6) / T_yaw;         % specified using the time constant in T_yaw
 
-% 2-DOF constant input matrix B_prop for the propellers i sway and yaw,
+% 2-DOF constant input matrix B_prop for the propellers in sway and yaw,
 % accessable by: [~,~,M, B_prop] = otter()
 if nargin == 0
     B_prop = k_pos * [...
