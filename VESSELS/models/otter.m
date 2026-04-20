@@ -113,8 +113,12 @@ nu_c_dot = [-Smtrx(nu2) * nu_c(1:3)         % current acceleration vector
 nabla = (m+mp)/rho;                         % volume
 T = nabla / (2 * Cb_pont * B_pont * L);     % draft
 Ig_CG = m * diag([R44^2, R55^2, R66^2]);    % only hull in the CG
-rg = (m*rg + mp*rp)/(m+mp);           % CG location corrected for payload
-Ig = Ig_CG - m * Smtrx(rg)^2 - mp * Smtrx(rp)^2; % hull + payload in the CO
+rg_hull = rg;   
+rg_total = (m*rg_hull + mp*rp)/(m+mp);
+r_hull = rg_hull - rg_total;
+r_payload = rp - rg_total;
+Ig = Ig_CG - m * Smtrx(r_hull)^2 - mp * Smtrx(r_payload)^2;
+rg = rg_total;
 
 % Experimental propeller data including lever arms
 l1 = -y_pont;                           % lever arm, left propeller (m)
